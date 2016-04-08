@@ -346,8 +346,12 @@ class DatasetResource(object):
         :type expressions: tuple[datacube.index.fields.PgExpression]
         :rtype list[datacube.model.Dataset]
         """
+        with self._db.begin():
+            return self._do_search(expressions, query, stream_results=True)
+
+    def _do_search(self, expressions, query, stream_results):
         query_exprs = tuple(fields.to_expressions(self.get_field, **query))
-        return self._make_many(self._db.search_datasets((expressions + query_exprs)))
+        return self._make_many(self._db.search_datasets((expressions + query_exprs), stream_results=stream_results))
 
     def search_summaries(self, *expressions, **query):
         """
@@ -373,4 +377,4 @@ class DatasetResource(object):
         :type query: dict[str,str|float|datacube.model.Range]
         :rtype list[datacube.model.Dataset]
         """
-        return list(self.search(*expressions, **query))
+        return list(self._do_search(expressions, query, stream_results=False))

@@ -449,7 +449,7 @@ class PostgresDb(object):
             select(_DATASET_SELECT_FIELDS).where(DATASET.c.metadata.contains(metadata))
         ).fetchall()
 
-    def search_datasets(self, expressions, select_fields=None):
+    def search_datasets(self, expressions, select_fields=None, stream_results=False):
         """
         :type select_fields: tuple[datacube.index.postgres._fields.PgField]
         :type expressions: tuple[datacube.index.postgres._fields.PgExpression]
@@ -464,6 +464,7 @@ class PostgresDb(object):
             expressions,
             primary_table=DATASET,
             select_fields=select_fields,
+            stream_results=stream_results,
         )
 
     def get_dataset_ids_for_storage_unit(self, storage_unit_id):
@@ -504,7 +505,11 @@ class PostgresDb(object):
             required_tables=required_tables
         )
 
-    def _search_docs(self, expressions, primary_table, select_fields=None, group_by_fields=None, required_tables=None):
+    def _search_docs(self, expressions, primary_table,
+                     select_fields=None,
+                     group_by_fields=None,
+                     required_tables=None,
+                     stream_results=False):
         """
 
         :type expressions: tuple[datacube.index.postgres._fields.PgExpression]
@@ -521,7 +526,7 @@ class PostgresDb(object):
         if group_by_fields:
             select_query = select_query.group_by(*group_by_fields)
 
-        results = self._connection.execute(select_query)
+        results = self._connection.execution_options(stream_results=stream_results).execute(select_query)
         for result in results:
             yield result
 
