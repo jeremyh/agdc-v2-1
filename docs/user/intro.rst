@@ -37,21 +37,23 @@ Types of Datasets in a Data Cube
 When using the Data Cube, it will contain records about 3 different types of
 products and datasets.
 
-========================= ============= ================
- Type of product/dataset   In Database   Data available
-========================= ============= ================
+================= ============= ========================
+ Type of dataset   In Database   Recorded data location
+================= ============= ========================
  Referenced                Yes           No
-------------------------- ------------- ----------------
- Indexed                   Yes           Maybe
-------------------------- ------------- ----------------
+----------------- ------------- ------------------------
+ Indexed                   Yes           Yes
+----------------- ------------- ------------------------
  Managed                   Yes           Yes
-========================= ============= ================
+================= ============= ========================
 
 Referenced Datasets
 ~~~~~~~~~~~~~~~~~~~
 
-The existence of these datasets is know about through the provenance history
-of datasets, but the raw data files are not tracked by the Data Cube.
+The existence and metadata of these datasets is known but the data itself is not
+accessible to the Data Cube. ie. A dataset without a location.
+
+These usually come from the provenance / source information of other datasets.
 
 Example:
 

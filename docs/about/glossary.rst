@@ -20,7 +20,7 @@ Glossary
       information see http://www.nci.org.au/.
 
    PostgreSQL
-      The high performance database engine used as an index of Dataset by the
+      The high performance database engine used as an index of Datasets by the
       Data Cube. It is both a relational and document database, and the Data
       Cube schema makes use of both of these capabilities.
 
