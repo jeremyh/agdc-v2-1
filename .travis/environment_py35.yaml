@@ -33,7 +33,9 @@ dependencies:
 - tqdm # for simple-replicas
 - pip:
   - celery >= 4
+  - pep8 # testing
+  - pylint == 1.7.2 # testing
   - pypeg2
   - pytest-cov # testing
-  - pytest-logging
   - pytest-faulthandler
+  - pytest-logging
