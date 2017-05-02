@@ -133,7 +133,7 @@ def compute_mosaic(products, measurements, **parsed_expressions):
                               measurements=measurements,
                               group_by='solar_day',
                               **parsed_expressions)
-            if len(dataset) == 0:
+            if not dataset:
                 continue
             else:
                 click.echo("Found {} time slices of {} during {}.".format(len(dataset['time']), prodname, acq_range))
@@ -143,7 +143,7 @@ def compute_mosaic(products, measurements, **parsed_expressions):
                          fuse_func=ga_pq_fuser,
                          **parsed_expressions)
 
-            if len(pq) == 0:
+            if not pq:
                 click.echo('No PQ found, skipping')
                 continue
 
@@ -155,7 +155,7 @@ def compute_mosaic(products, measurements, **parsed_expressions):
             cloud_free = make_mask(pq.pixelquality, ga_good_pixel=True)
             dataset = dataset.where(cloud_free)
 
-            if len(dataset) == 0:
+            if not dataset:
                 click.echo("Nothing left after PQ masking")
                 continue
 

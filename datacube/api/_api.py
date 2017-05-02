@@ -94,7 +94,7 @@ class API(object):
                 continue
             # this is here due to the fact that not every dataset we have ingested will have
             # data for every area... This was broken on commit 5b83ea6ec2f7fab5ecd2fe40fba02db8786ec711, Aug 4.
-            if len(coords) > 0:
+            if coords:
                 dataset_descriptor['result_min'] += (min(coords),)
                 dataset_descriptor['result_max'] += (max(coords),)
                 dataset_descriptor['result_shape'] += (len(coords),)
@@ -117,12 +117,12 @@ class API(object):
             return str(ds.local_path)
 
         datasets.sort(key=dataset_path)
-        for path, datasets in groupby(datasets, key=dataset_path):
-            datasets = list(datasets)
+        for path, datasets_in_path in groupby(datasets, key=dataset_path):
+            datasets_in_path = list(datasets_in_path)
             su = {}
-            times = [dataset.center_time for dataset in datasets]
-            xs = [x for dataset in datasets for x in (dataset.bounds.left, dataset.bounds.right)]
-            ys = [y for dataset in datasets for y in (dataset.bounds.top, dataset.bounds.bottom)]
+            times = [dataset.center_time for dataset in datasets_in_path]
+            xs = [x for dataset in datasets_in_path for x in (dataset.bounds.left, dataset.bounds.right)]
+            ys = [y for dataset in datasets_in_path for y in (dataset.bounds.top, dataset.bounds.bottom)]
             su['storage_shape'] = (len(times),) + dataset_type.grid_spec.tile_resolution
             su['storage_min'] = min(times), min(ys), min(xs)
             su['storage_max'] = max(times), max(ys), max(xs)

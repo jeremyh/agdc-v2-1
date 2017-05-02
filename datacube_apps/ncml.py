@@ -9,18 +9,16 @@ import os
 from datetime import datetime
 from functools import partial
 from itertools import groupby
+from pathlib import Path
 
 import click
 from dateutil import tz
-from pathlib import Path
 
 import datacube
 from datacube.ui import task_app
 from datacube.ui.click import to_pathlib
 
-
 _LOG = logging.getLogger(__name__)
-
 
 APP_NAME = 'datacube-ncml'
 
@@ -80,7 +78,7 @@ def get_history_attribute(config, task):
                         str(config['version']),
                         task['output_filename'],
                         str(task['cell_index'])
-                       ]),
+                        ]),
         comment='Created NCML file to aggregate multiple NetCDF files along the time dimension'
     )
 
@@ -221,6 +219,7 @@ def update(index, config, tasks, executor, queue_size, **kwargs):
 
     task_func = partial(do_ncml_task, config)
     task_app.run_tasks(tasks, executor, task_func, None, queue_size)
+
 
 if __name__ == '__main__':
     ncml_app()

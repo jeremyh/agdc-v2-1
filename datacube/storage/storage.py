@@ -192,14 +192,14 @@ def reproject_and_fuse(sources, destination, dst_transform, dst_projection, dst_
     fuse_func = fuse_func or copyto_fuser
 
     destination.fill(dst_nodata)
-    if len(sources) == 0:
+    if not sources:
         return destination
     elif len(sources) == 1:
         with ignore_exceptions_if(skip_broken_datasets):
             read_from_source(sources[0], destination, dst_transform, dst_nodata, dst_projection, resampling)
         return destination
     else:
-        # Muitiple sources, we need to fuse them together into a single array
+        # Multiple sources, we need to fuse them together into a single array
         buffer_ = numpy.empty(destination.shape, dtype=destination.dtype)
         for source in sources:
             with ignore_exceptions_if(skip_broken_datasets):

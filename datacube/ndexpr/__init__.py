@@ -417,11 +417,11 @@ class NDexpr(object):
             ops = ()
             i = 0
             dims = len(s)
-            while len(s) > 0:
+            while dims > 0:
                 val = self.evaluate_stack(s)
                 if not isinstance(val, slice):
                     val = int(val)
-                ops += val,
+                ops += (val,)
                 i = i+1
             ops = ops[::-1]
             return op1[ops]

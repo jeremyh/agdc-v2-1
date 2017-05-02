@@ -126,11 +126,11 @@ class PgDocField(PgField):
         # Default do nothing (eg. string datatypes)
         return value
 
-    def parse_value(self, value):
+    def parse_value(self, s):
         """
         Parse the value from a string. May be overridden by subclasses.
         """
-        return value
+        return s
 
     def _alchemy_offset_value(self, doc_offsets, agg_function):
         # type: (Tuple[Tuple[str]], Callable[[Any], ColumnElement]) -> ColumnElement

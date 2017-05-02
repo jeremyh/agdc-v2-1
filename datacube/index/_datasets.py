@@ -1205,7 +1205,7 @@ class DatasetResource(object):
 
         product_queries = list(self._get_product_queries(query))
         if ensure_single:
-            if len(product_queries) == 0:
+            if not product_queries:
                 raise ValueError('No products match search terms: %r' % query)
             if len(product_queries) > 1:
                 raise ValueError('Multiple products match single query search: %r' %

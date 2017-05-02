@@ -408,7 +408,7 @@ class AnalyticsEngine(object):
     def list_searchables(self):
         """List searchable parameters for use in get_descriptor and get_data"""
         items = {}
-        if len(self.api_descriptors) == 0:
+        if not self.api_descriptors:
             self.api_descriptors = self.api.get_descriptor()
         for storage_type in self.api_descriptors.keys():
             item = {}
@@ -419,7 +419,7 @@ class AnalyticsEngine(object):
             item['storage_type'] = str(storage_type)
             items[str(storage_type)] = item
 
-        if len(self.api_products) == 0:
+        if not self.api_products:
             self.api_products = self.api.list_products()
         for product in self.api_products:
             storage_type = str(product['name'])
