@@ -19,9 +19,9 @@ class Index(base_index.Index, base_index.IndexExtension):
     by writing additional s3 information to specific tables.
     """
 
-    def __init__(self, uri_scheme, driver_manager, index=None, *args, **kargs):
+    def __init__(self, uri_scheme, driver_manager, db=None):
         """Initialise the index and its dataset resource."""
-        super(Index, self).__init__(driver_manager, index, *args, **kargs)
+        super(Index, self).__init__(driver_manager, db)
         self.uri_scheme = uri_scheme
         self.datasets = DatasetResource(driver_manager, self._db, self.products, self.uri_scheme)
 
@@ -267,7 +267,6 @@ class DatasetResource(base_dataset.DatasetResource):
         )
 
         return res.inserted_primary_key[0]
-
 
     def get_s3_dataset(self, _connection, dataset_ref, band):
         """:type dataset_ref: uuid.UUID

@@ -8,7 +8,6 @@ import logging
 from pathlib import Path
 
 import datacube.utils
-from datacube.config import LocalConfig
 from ._datasets import DatasetResource, ProductResource, MetadataTypeResource
 from .postgres import PostgresDb
 

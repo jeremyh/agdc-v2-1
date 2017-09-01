@@ -110,7 +110,7 @@ class Datacube(object):
             if isinstance(config, string_types):
                 config = LocalConfig.find([config], env=env)
 
-            driver_manager = DriverManager(index=index, local_config=config, application_name=app)
+            driver_manager = DriverManager(index=index, local_config=config, application_name=app, env=env)
             self._to_close = driver_manager
 
         self.driver_manager = driver_manager

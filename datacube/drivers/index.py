@@ -45,15 +45,10 @@ class Index(base_index.Index, IndexExtension):
     driver-specific sub-classes of this index.
     """
 
-    def __init__(self, driver_manager, index=None, *args, **kargs):
+    def __init__(self, driver_manager, db):
         """Initialise the generic index.
 
-        :param index: An index object behaving like
-          :class:`datacube.index._api.Index` and used for testing
-          purposes only. In the current implementation, only the
-          `index._db` variable is used, and is passed to the index
-          initialisation method, that should basically replace the
-          existing DB connection with that variable.
+        :param PostgresDb db:
         :param args: Optional positional arguments to be passed to the
           index on initialisation. Caution: In the current
           implementation all parameters get passed to all potential
@@ -65,17 +60,6 @@ class Index(base_index.Index, IndexExtension):
 
         """
         self.logger = logging.getLogger(self.__class__.__name__)
-        if index is None:
-            local_config = kargs['local_config'] if 'local_config' in kargs else None
-            application_name = kargs['application_name'] if 'application_name' in kargs else None
-            validate_connection = kargs['validate_connection'] if 'validate_connection' in kargs else True
-            if local_config is None:
-                local_config = LocalConfig.find()
-            db = PostgresDb.from_config(local_config,
-                                        application_name=application_name,
-                                        validate_connection=validate_connection)
-        else:
-            db = index._db  # pylint: disable=protected-access
         super(Index, self).__init__(driver_manager, db)
 
     def add_specifics(self, dataset):

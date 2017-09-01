@@ -188,9 +188,9 @@ class S3Driver(Driver):
             outputs[band] = output
         return outputs
 
-    def _init_index(self, driver_manager, index, *args, **kargs):
+    def _init_index(self, driver_manager, db):
         """See :meth:`datacube.drivers.driver.init_index`"""
-        return Index(self.uri_scheme, driver_manager, index, *args, **kargs)
+        return Index(self.uri_scheme, driver_manager, db)
 
     def get_index_specifics(self, dataset):
         return self.index.get_specifics(dataset)

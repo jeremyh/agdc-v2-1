@@ -24,7 +24,7 @@ class Driver(object):
     #: Driver's Index
     __index = None
 
-    def __init__(self, driver_manager, name, index=None, *index_args, **index_kargs):
+    def __init__(self, driver_manager, name, db=None):
         """Initialise the driver's name and index.
 
         This should be called by subclasses, or the name and index set manually.
@@ -48,7 +48,7 @@ class Driver(object):
         self.__name = name
         self._driver_manager = driver_manager
         # pylint: disable=protected-access
-        self.__index = self._init_index(driver_manager, index, *index_args, **index_kargs)
+        self.__index = self._init_index(driver_manager, db)
 
     @property
     def name(self):
@@ -105,7 +105,7 @@ class Driver(object):
         return None
 
     @abstractmethod
-    def _init_index(self, driver_manager, index, *args, **kargs):
+    def _init_index(self, driver_manager, db):
         """Initialise this driver's index.
 
         :param driver_manager: The driver manager.

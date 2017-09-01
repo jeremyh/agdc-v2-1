@@ -8,6 +8,8 @@ from pathlib import Path
 from collections import Iterable
 from cloudpickle import loads, dumps
 
+from datacube.config import LocalConfig
+from datacube.index.postgres import PostgresDb
 from ..compat import load_module
 from .driver import Driver
 from .index import Index
@@ -33,7 +35,7 @@ class DriverManager(object):
     #: Attribue name where driver information is stored in `__init__.py`.
     _DRIVER_SPEC = 'DRIVER_SPEC'
 
-    def __init__(self, index=None, *index_args, **index_kargs):
+    def __init__(self, db=None, *index_args, **index_kargs):
         """Initialise the manager.
 
         Each driver get initialised during instantiation, including
@@ -58,7 +60,7 @@ class DriverManager(object):
           indexes.
         """
 
-        self._orig = {'index': dumps(index), 'index_args': index_args, 'index_kargs': index_kargs}
+        self._orig = {'db': dumps(db), 'index_args': index_args, 'index_kargs': index_kargs}
 
         self.__index = None
         '''Generic index.'''
@@ -73,17 +75,34 @@ class DriverManager(object):
         self.is_clone = False
         # Initialise the generic index
         # pylint: disable=protected-access
-        self.set_index(index, *index_args, **index_kargs)
-        self.reload_drivers(index, *index_args, **index_kargs)
+        if self.__index:
+            self.__index.close()
+
+        self.__index = Index(weakref.ref(self)(), db)
+        self.logger.debug('Generic index set to %s', self.__index)
+
+        self.reload_drivers(db)
         self.set_current_driver(DriverManager._DEFAULT_DRIVER)
         self.logger.debug('Ready. %s', self)
+
+    @classmethod
+    def create(cls, local_config=None, application_name=None, validate_connection=True):
+        if local_config is None:
+            local_config = LocalConfig.find()
+
+        # TODO: Driver should tell us what db implementation to use.
+        return cls(PostgresDb.from_config(
+            local_config,
+            application_name=application_name,
+            validate_connection=validate_connection
+        ))
 
     def __getstate__(self):
         self._orig['current_driver'] = self.driver.name
         return self._orig
 
     def __setstate__(self, state):
-        self.__init__(index=loads(state['index']), *state['index_args'], **state['index_kargs'])
+        self.__init__(db=loads(state['db']), *state['index_args'], **state['index_kargs'])
         self.set_current_driver(state['current_driver'])
         self.is_clone = True
 
@@ -108,30 +127,7 @@ class DriverManager(object):
         if hasattr(self, 'logger'):
             self.logger.debug('Closed index connections')
 
-    def set_index(self, index=None, *index_args, **index_kargs):
-        """Initialise the generic index.
-
-        :param index: An index object behaving like
-          :class:`datacube.index._api.Index` and used for testing
-          purposes only. In the current implementation, only the
-          `index._db` variable is used, and is passed to the index
-          initialisation method, that should basically replace the
-          existing DB connection with that variable.
-        :param args: Optional positional arguments to be passed to the
-          index on initialisation. Caution: In the current
-          implementation all parameters get passed to all available
-          indexes.
-        :param args: Optional keyword arguments to be passed to the
-          index on initialisation. Caution: In the current
-          implementation all parameters get passed to all available
-          indexes.
-        """
-        if self.__index:
-            self.__index.close()
-        self.__index = Index(weakref.ref(self)(), index, *index_args, **index_kargs)
-        self.logger.debug('Generic index set to %s', self.__index)
-
-    def reload_drivers(self, index=None, *index_args, **index_kargs):
+    def reload_drivers(self, db=None):
         """Load and initialise all available drivers and their indexes.
 
 
@@ -164,18 +160,17 @@ class DriverManager(object):
                 try:
                     driver_module = load_module(spec[1], str(filepath))
                 except ImportError:
-                    self.logger.info('Import Failed for Driver plugin "%s", skipping.', spec[1])
+                    self.logger.warning('Import Failed for Driver plugin "%s", skipping.', spec[1])
                     continue
                 driver_cls = getattr(driver_module, spec[1])
                 if issubclass(driver_cls, Driver):
-                    driver = driver_cls(weakref.ref(self)(), spec[0], index, *index_args, **index_kargs)
+                    driver = driver_cls(weakref.ref(self)(), spec[0], db)
                     if not driver.requirements_satisfied():
                         self.logger.info('Driver plugin "%s" failed requirements check, skipping.', spec[1])
                         continue
                     self.__drivers[driver.name] = driver
                 else:
-                    self.logger.info('Driver plugin "%s" is not a subclass of the abstract Driver class.',
-                                     driver_cls)
+                    self.logger.warning('Driver plugin "%s" is not a subclass of the Driver class.', driver_cls)
         if len(self.__drivers) < 1:
             raise RuntimeError('No plugin driver found, Datacube cannot operate.')
         self.logger.debug('Reloaded %d drivers.', len(self.__drivers))

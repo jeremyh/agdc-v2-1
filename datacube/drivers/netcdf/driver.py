@@ -26,9 +26,9 @@ class NetCDFDriver(Driver):
         """
         return write_dataset_to_netcdf(dataset, *args, **kargs)
 
-    def _init_index(self, driver_manager, index, *args, **kargs):
+    def _init_index(self, driver_manager, db):
         """See :meth:`datacube.drivers.driver.init_index`"""
-        return Index(driver_manager, index, *args, **kargs)
+        return Index(driver_manager, db)
 
     def get_datasource(self, dataset, measurement_id):
         """See :meth:`datacube.drivers.driver.get_datasource`"""

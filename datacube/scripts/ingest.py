@@ -266,9 +266,6 @@ def ingest_work(driver_manager, config, source_type, output_type, tile, tile_ind
     datasets = xr_apply(tile.sources, _make_dataset, dtype='O')  # Store in Dataarray to associate Time -> Dataset
     nudata['dataset'] = datasets_to_doc(datasets)
 
-    # Until ingest becomes a class and DriverManager an instance
-    # variable, we call the constructor each time. DriverManager being
-    # a singleton, there is little overhead, though.
     datasets.attrs['storage_output'] = driver_manager.write_dataset_to_storage(nudata,
                                                                                file_path,
                                                                                global_attributes,
