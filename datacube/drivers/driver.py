@@ -46,8 +46,6 @@ class Driver(object):
           indexes.
         """
         self.__name = name
-        self._driver_manager = driver_manager
-        # pylint: disable=protected-access
         self.__index = self._init_index(driver_manager, db)
 
     @property

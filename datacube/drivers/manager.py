@@ -62,9 +62,6 @@ class DriverManager(object):
 
         self._orig = {'db': dumps(db), 'index_args': index_args, 'index_kargs': index_kargs}
 
-        self.__index = None
-        '''Generic index.'''
-
         self.__driver = None
         '''Current driver.'''
 
@@ -73,13 +70,6 @@ class DriverManager(object):
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.is_clone = False
-        # Initialise the generic index
-        # pylint: disable=protected-access
-        if self.__index:
-            self.__index.close()
-
-        self.__index = Index(weakref.ref(self)(), db)
-        self.logger.debug('Generic index set to %s', self.__index)
 
         self.reload_drivers(db)
         self.set_current_driver(DriverManager._DEFAULT_DRIVER)
@@ -118,11 +108,7 @@ class DriverManager(object):
         """Close all drivers' index connections."""
         if self.__drivers:
             for driver in self.__drivers.values():
-                # pylint: disable=protected-access
-                if driver.index._db != self.__index._db:
-                    driver.index.close()
-        if self.__index:
-            self.__index.close()
+                driver.close()
 
         if hasattr(self, 'logger'):
             self.logger.debug('Closed index connections')
@@ -149,8 +135,7 @@ class DriverManager(object):
         if self.__drivers:
             for driver in self.__drivers.values():
                 # pylint: disable=protected-access
-                if driver.index._db != self.__index._db:
-                    driver.index.close()
+                driver.index.close()
         self.__drivers = {}
         for init_path in Path(__file__).parent.glob('*/__init__.py'):
             init = load_module(str(init_path.parent.stem), str(init_path))
@@ -202,7 +187,7 @@ class DriverManager(object):
 
         :rtype: Index
         """
-        return self.__index
+        return self.driver.index
 
     @property
     def drivers(self):
