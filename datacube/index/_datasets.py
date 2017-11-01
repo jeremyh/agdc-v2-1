@@ -7,9 +7,8 @@ from __future__ import absolute_import
 import logging
 import warnings
 from collections import namedtuple
-from uuid import UUID
 
-from cachetools.func import lru_cache
+from uuid import UUID
 
 from datacube import compat
 from datacube.index.fields import Field
@@ -26,6 +25,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from functools import lru_cache
+except ImportError:
+    from cachetools.func import lru_cache
+
 
 # It's a public api, so we can't reorganise old methods.
 # pylint: disable=too-many-public-methods, too-many-lines
@@ -37,9 +41,6 @@ class MetadataTypeResource(object):
         :type db: datacube.index.postgres._connections.PostgresDb
         """
         self._db = db
-
-        self.get_unsafe = lru_cache()(self.get_unsafe)
-        self.get_by_name_unsafe = lru_cache()(self.get_by_name_unsafe)
 
     def from_doc(self, definition):
         """
@@ -182,8 +183,7 @@ class MetadataTypeResource(object):
         except KeyError:
             return None
 
-    # This is memoized in the constructor
-    # pylint: disable=method-hidden
+    @lru_cache()
     def get_unsafe(self, id_):
         with self._db.connect() as connection:
             record = connection.get_metadata_type(id_)
@@ -191,8 +191,7 @@ class MetadataTypeResource(object):
             raise KeyError('%s is not a valid MetadataType id')
         return self._make_from_query_row(record)
 
-    # This is memoized in the constructor
-    # pylint: disable=method-hidden
+    @lru_cache()
     def get_by_name_unsafe(self, name):
         with self._db.connect() as connection:
             record = connection.get_metadata_type_by_name(name)
@@ -271,9 +270,6 @@ class ProductResource(object):
         """
         self._db = db
         self.metadata_type_resource = metadata_type_resource
-
-        self.get_unsafe = lru_cache()(self.get_unsafe)
-        self.get_by_name_unsafe = lru_cache()(self.get_by_name_unsafe)
 
     def from_doc(self, definition):
         """
@@ -507,8 +503,7 @@ class ProductResource(object):
         except KeyError:
             return None
 
-    # This is memoized in the constructor
-    # pylint: disable=method-hidden
+    @lru_cache()
     def get_unsafe(self, id_):
         with self._db.connect() as connection:
             result = connection.get_dataset_type(id_)
@@ -516,8 +511,7 @@ class ProductResource(object):
             raise KeyError('"%s" is not a valid Product id' % id_)
         return self._make(result)
 
-    # This is memoized in the constructor
-    # pylint: disable=method-hidden
+    @lru_cache()
     def get_by_name_unsafe(self, name):
         with self._db.connect() as connection:
             result = connection.get_dataset_type_by_name(name)

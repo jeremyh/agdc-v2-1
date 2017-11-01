@@ -3,6 +3,7 @@ from pprint import pprint
 import gc
 
 import pytest
+import sys
 
 from datacube.drivers.manager import DriverManager
 from datacube.model import Dataset
@@ -94,6 +95,11 @@ def test_crs_parse(indexed_ls5_scene_dataset_types):
     assert d.crs is None
 
 
+@pytest.mark.xfail(
+    sys.version_info < (3, 2),
+    reason="The usage of cachetools in py2 leaks references to old indexes. "
+           "Fixed in py3 which uses the functools built-in"
+)
 def test_single_dm_instance(driver_manager, db):
     """
     Our driver manager should only be linked to one PostgresDb instance in memory.
