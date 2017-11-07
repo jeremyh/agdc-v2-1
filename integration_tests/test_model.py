@@ -95,7 +95,7 @@ def test_crs_parse(indexed_ls5_scene_dataset_types):
     assert d.crs is None
 
 
-@pytest.mark.skip(
+@pytest.mark.skipif(
     sys.version_info < (3, 4),
     reason="objgraph search is too slow on older python"
 )
