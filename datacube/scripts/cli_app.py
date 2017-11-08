@@ -8,6 +8,7 @@ from __future__ import absolute_import
 
 from datacube.ui.click import cli
 import datacube.scripts.dataset
+import datacube.scripts.file_cli
 import datacube.scripts.ingest
 import datacube.scripts.product
 import datacube.scripts.metadata_type
