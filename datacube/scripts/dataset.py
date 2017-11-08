@@ -1,27 +1,20 @@
 from __future__ import absolute_import
 
-import csv
 import datetime
+import json
 import logging
 import sys
-from collections import OrderedDict
-from decimal import Decimal
 from pathlib import Path
 
 import click
-import yaml
-import yaml.resolver
 from click import echo
-import json
-from yaml import Node
 
 from datacube.index._api import Index
 from datacube.index.exceptions import MissingRecordError
 from datacube.model import Dataset
-from datacube.model import Range
 from datacube.ui import click as ui
 from datacube.ui.click import cli
-from datacube.ui.common import get_metadata_path
+from datacube.ui.common import get_metadata_path, write_datasets, OUTPUT_FORMAT_OPT
 from datacube.utils import read_documents, changes, InvalidDocException
 
 try:
@@ -248,106 +241,10 @@ def update_dry_run(index, updates, dataset):
     return can_update
 
 
-def build_dataset_info(index, dataset, show_sources=False, show_derived=False, depth=1, max_depth=99):
-    # type: (Index, Dataset, bool) -> dict
-
-    info = OrderedDict((
-        ('id', str(dataset.id)),
-        ('product', dataset.type.name),
-        ('status', 'archived' if dataset.is_archived else 'active')
-    ))
-
-    # Optional when loading a dataset.
-    if dataset.indexed_time is not None:
-        info['indexed'] = dataset.indexed_time
-
-    info['locations'] = dataset.uris
-    info['fields'] = dataset.metadata.search_fields
-
-    if depth < max_depth:
-        if show_sources:
-            info['sources'] = {key: build_dataset_info(index, source,
-                                                       show_sources=True, show_derived=False,
-                                                       depth=depth + 1, max_depth=max_depth)
-                               for key, source in dataset.sources.items()}
-
-        if show_derived:
-            info['derived'] = [build_dataset_info(index, derived,
-                                                  show_sources=False, show_derived=True,
-                                                  depth=depth + 1, max_depth=max_depth)
-                               for derived in index.datasets.get_derived(dataset.id)]
-
-    return info
-
-
-def _write_csv(infos):
-    writer = csv.DictWriter(sys.stdout, ['id', 'status', 'product', 'location'], extrasaction='ignore')
-    writer.writeheader()
-
-    def add_first_location(row):
-        locations_ = row['locations']
-        row['location'] = locations_[0] if locations_ else None
-        return row
-
-    writer.writerows(add_first_location(row) for row in infos)
-
-
-def _write_yaml(infos):
-    """
-    Dump yaml data with support for OrderedDicts.
-
-    Allows for better human-readability of output: such as dataset ID field first, sources last.
-
-    (Ordered dicts are output identically to normal yaml dicts: their order is purely for readability)
-    """
-
-    # We can't control how many ancestors this dumper API uses.
-    # pylint: disable=too-many-ancestors
-    class OrderedDumper(yaml.SafeDumper):
-        pass
-
-    def _dict_representer(dumper, data):
-        return dumper.represent_mapping(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, data.items())
-
-    def _range_representer(dumper, data):
-        # type: (yaml.Dumper, Range) -> Node
-        begin, end = data
-
-        # pyyaml doesn't output timestamps in flow style as timestamps(?)
-        if isinstance(begin, datetime.datetime):
-            begin = begin.isoformat()
-        if isinstance(end, datetime.datetime):
-            end = end.isoformat()
-
-        return dumper.represent_mapping(
-            yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-            (('begin', begin), ('end', end)),
-            flow_style=True
-        )
-
-    def _reduced_accuracy_decimal_representer(dumper, data):
-        # type: (yaml.Dumper, Decimal) -> Node
-        return dumper.represent_float(
-            float(data)
-        )
-
-    OrderedDumper.add_representer(OrderedDict, _dict_representer)
-    OrderedDumper.add_representer(Range, _range_representer)
-    OrderedDumper.add_representer(Decimal, _reduced_accuracy_decimal_representer)
-    return yaml.dump_all(infos, sys.stdout, OrderedDumper, default_flow_style=False, indent=4)
-
-
-_OUTPUT_WRITERS = {
-    'csv': _write_csv,
-    'yaml': _write_yaml,
-}
-
-
 @dataset_cmd.command('info', help="Display dataset information")
 @click.option('--show-sources', help='Also show source datasets', is_flag=True, default=False)
 @click.option('--show-derived', help='Also show derived datasets', is_flag=True, default=False)
-@click.option('-f', help='Output format',
-              type=click.Choice(_OUTPUT_WRITERS.keys()), default='yaml', show_default=True)
+@OUTPUT_FORMAT_OPT
 @click.option('--max-depth',
               help='Maximum sources/derived depth to travel',
               type=int,
@@ -355,8 +252,8 @@ _OUTPUT_WRITERS = {
               default=99)
 @click.argument('ids', nargs=-1)
 @ui.pass_index()
-def info_cmd(index, show_sources, show_derived, f, max_depth, ids):
-    # type: (Index, bool, bool, Iterable[str]) -> None
+def info_cmd(index, show_sources, show_derived, format_, max_depth, ids):
+    # type: (Index, bool, bool, str, int, Iterable[str]) -> None
 
     # Using an array wrapper to get around the lack of "nonlocal" in py2
     missing_datasets = [0]
@@ -370,13 +267,13 @@ def info_cmd(index, show_sources, show_derived, f, max_depth, ids):
                 click.echo('%s missing' % id_, err=True)
                 missing_datasets[0] += 1
 
-    _OUTPUT_WRITERS[f](
-        build_dataset_info(index,
-                           dataset,
-                           show_sources=show_sources,
-                           show_derived=show_derived,
-                           max_depth=max_depth)
-        for dataset in get_datasets(ids)
+    write_datasets(
+        index,
+        format_,
+        get_datasets(ids),
+        show_sources=show_sources,
+        show_derived=show_derived,
+        max_depth=max_depth
     )
     sys.exit(missing_datasets[0])
 
@@ -384,18 +281,17 @@ def info_cmd(index, show_sources, show_derived, f, max_depth, ids):
 @dataset_cmd.command('search')
 @click.option('--limit', help='Limit the number of results',
               type=int, default=None)
-@click.option('-f', help='Output format',
-              type=click.Choice(_OUTPUT_WRITERS.keys()), default='yaml', show_default=True)
+@OUTPUT_FORMAT_OPT
 @ui.parsed_search_expressions
 @ui.pass_index()
-def search_cmd(index, limit, f, expressions):
+def search_cmd(index, limit, format_, expressions):
     """
     Search available Datasets
     """
-    datasets = index.datasets.search(limit=limit, **expressions)
-    _OUTPUT_WRITERS[f](
-        build_dataset_info(index, dataset)
-        for dataset in datasets
+    write_datasets(
+        index,
+        format_,
+        index.datasets.search(limit=limit, **expressions)
     )
 
 

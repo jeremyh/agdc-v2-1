@@ -26,6 +26,7 @@ import numpy
 import xarray
 import yaml
 from dateutil.tz import tzutc
+from decimal import Decimal
 
 try:
     from yaml import CSafeLoader as SafeLoader
@@ -463,6 +464,8 @@ def jsonify_document(doc):
         if isinstance(v, numpy.dtype):
             return v.name
         if isinstance(v, UUID):
+            return str(v)
+        if isinstance(v, Decimal):
             return str(v)
         return v
 
