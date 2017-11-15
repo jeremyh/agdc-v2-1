@@ -24,6 +24,11 @@ from datacube.model import Dataset, MetadataType
 from datacube.scripts import cli_app
 from datacube.utils.changes import DocumentMismatchError
 
+try:
+    from typing import Iterable
+except ImportError:
+    pass
+
 _telemetry_uuid = UUID('4ec8fe97-e8b9-11e4-87ff-1040f381a756')
 _telemetry_dataset = {
     'product_type': 'satellite_telemetry_data',
@@ -369,11 +374,15 @@ def test_index_dataset_with_location(index, default_metadata_type, driver):
     assert dataset_ids == [dataset.id]
 
 
-def test_archiving_locations_on_cli(index, default_metadata_type, global_integration_cli_args):
-    # type: (Index, MetadataType, Driver) -> None
+def test_archiving_locations_on_cli(index, default_metadata_type, driver, global_integration_cli_args):
+    # type: (Index, MetadataType, Driver, Iterable[str]) -> None
     """
     Can we archive and restore file locations from the cli?
     """
+    # 'file' cli is only applicable to file-based drivers.
+    if driver.uri_scheme != 'file':
+        return
+
     first_path = Path('/tmp/first/something.yaml')
     second_path = Path('/tmp/second/something.yaml')
 
