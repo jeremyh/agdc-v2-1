@@ -174,7 +174,8 @@ OUTPUT_FORMAT_OPT = click.option('-f', 'format_', help='Output format',
                                  type=click.Choice(_OUTPUT_WRITERS.keys()), default='yaml', show_default=True)
 
 
-def write_datasets(index, format_: str, datasets: Iterable[Dataset], **dataset_opts):
+def write_datasets(index, format_, datasets, **dataset_opts):
+    # type: (Index, str, Iterable[Dataset]) -> None
     _OUTPUT_WRITERS[format_](
         build_dataset_info(index, dataset, **dataset_opts)
         for dataset in datasets
