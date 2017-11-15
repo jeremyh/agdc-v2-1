@@ -47,7 +47,7 @@ def info_cmd(index, show_sources, show_derived, format_, max_depth, files):
     def get_datasets(file_location):
         for file_ in file_location:
 
-            file_uri = Path(file_).resolve().as_uri()
+            file_uri = _full_uri(file_)
             datasets = index.datasets.get_datasets_for_location(file_uri)
             count = 0
             for dataset in datasets:
@@ -83,7 +83,8 @@ def archive_cmd(index, dry_run, files):
     for file_ in files:
         archive_count = 0
 
-        file_uri = Path(file_).resolve().as_uri()
+        file_uri = _full_uri(file_)
+
         to_process = index.datasets.get_datasets_for_location(file_uri)
 
         for d in to_process:
@@ -112,7 +113,7 @@ def restore_cmd(index, dry_run, files):
     for file_ in files:
         restore_count = 0
 
-        file_uri = Path(file_).resolve().as_uri()
+        file_uri = _full_uri(file_)
         to_process = index.datasets.get_datasets_for_location(file_uri)
 
         for d in to_process:
@@ -126,3 +127,14 @@ def restore_cmd(index, dry_run, files):
                 not_found_count += 1
 
     return not_found_count
+
+
+def _full_uri(file_):
+    # type: (str) -> str
+    """
+    Get the full uri for the given file, even if it doesn't exist
+    """
+    path = Path(file_)
+    path = path.resolve() if path.exists() else path.absolute()
+    file_uri = path.as_uri()
+    return file_uri
