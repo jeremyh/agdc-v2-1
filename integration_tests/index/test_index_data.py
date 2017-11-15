@@ -9,18 +9,20 @@ from __future__ import absolute_import
 import copy
 import datetime
 import sys
-import re
 from pathlib import Path
 from uuid import UUID
 
 import pytest
+from click.testing import CliRunner
 from dateutil import tz
 
+from datacube.drivers.driver import Driver
 from datacube.index._api import Index
 from datacube.index.exceptions import DuplicateRecordError, MissingRecordError
 from datacube.index.postgres import PostgresDb
+from datacube.model import Dataset, MetadataType
+from datacube.scripts import cli_app
 from datacube.utils.changes import DocumentMismatchError
-from datacube.model import Dataset
 
 _telemetry_uuid = UUID('4ec8fe97-e8b9-11e4-87ff-1040f381a756')
 _telemetry_dataset = {
@@ -302,7 +304,7 @@ def test_index_dataset_with_location(index, default_metadata_type, driver):
     location_times = index.datasets.get_archived_location_times(dataset.id)
     assert len(location_times) == 1
     location, archived_time = location_times[0]
-    assert location == re.sub("^file", driver.uri_scheme, first_file.as_uri())
+    assert location == first_uri
     assert utc_now() > archived_time > before_archival_dt
 
     was_restored = index.datasets.restore_location(dataset.id, first_uri)
@@ -331,7 +333,7 @@ def test_index_dataset_with_location(index, default_metadata_type, driver):
     assert locations == [second_uri]
     was_restored = index.datasets.restore_location(dataset.id, first_uri)
     assert was_restored
-    locations = index.datasets.get_locations(dataset.id)
+    locations = index.datasets.get(dataset.id).uris
     assert locations == [second_uri, first_uri]
 
     # Can archive and restore the second file, and location order is preserved
@@ -365,6 +367,52 @@ def test_index_dataset_with_location(index, default_metadata_type, driver):
     index.datasets.add(Dataset(type_, second_ds_doc, uris=[second_uri], sources={}))
     dataset_ids = [d.id for d in index.datasets.get_datasets_for_location(first_uri)]
     assert dataset_ids == [dataset.id]
+
+
+def test_archiving_locations_on_cli(index, default_metadata_type, global_integration_cli_args):
+    # type: (Index, MetadataType, Driver) -> None
+    """
+    Can we archive and restore file locations from the cli?
+    """
+    first_path = Path('/tmp/first/something.yaml')
+    second_path = Path('/tmp/second/something.yaml')
+
+    type_ = index.products.add_document(_pseudo_telemetry_dataset_type)
+    dataset = Dataset(type_, _telemetry_dataset, uris=[first_path.as_uri(), second_path.as_uri()], sources={})
+    index.datasets.add(dataset)
+
+    # Archive the first path
+    _run_cli(global_integration_cli_args, ['file', 'archive', str(first_path)])
+
+    # Now only the second uri will be active
+    locations = index.datasets.get(dataset.id).uris
+    assert locations == [second_path.as_uri()]
+
+    # Restore the first path
+    _run_cli(global_integration_cli_args, ['file', 'restore', str(first_path)])
+    # Both should be active
+    locations = index.datasets.get(dataset.id).uris
+    assert locations == [first_path.as_uri(), second_path.as_uri()]
+
+    # Show info on file: it should mention our dataset.
+    res = _run_cli(global_integration_cli_args, ['file', 'info', str(first_path)])
+    assert str(dataset.id) in res.output
+    assert first_path.as_uri() in res.output
+
+
+def _run_cli(global_integration_cli_args, opts, catch_exceptions=False, expect_success=True):
+    exe_opts = list(global_integration_cli_args)
+    exe_opts.extend(opts)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_app.cli,
+        exe_opts,
+        catch_exceptions=catch_exceptions
+    )
+    if expect_success:
+        assert result.exit_code == 0, "Error for %r. output: %r" % (opts, result.output)
+    return result
 
 
 def utc_now():
