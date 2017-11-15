@@ -444,8 +444,8 @@ def jsonify_document(doc):
     >>> sorted(jsonify_document({'a': (1.0, 2.0, 3.0), 'b': float("inf"), 'c': datetime(2016, 3, 11)}).items())
     [('a', (1.0, 2.0, 3.0)), ('b', 'Infinity'), ('c', '2016-03-11T00:00:00')]
     >>> # Converts keys to strings:
-    >>> sorted(jsonify_document({1: 'a', '2': 'b'}).items())
-    [('1', 'a'), ('2', 'b')]
+    >>> sorted(jsonify_document({1: 'a', 'b': Decimal('2')}).items())
+    [('1', 'a'), ('b', '2')]
     >>> jsonify_document({'k': UUID("1f231570-e777-11e6-820f-185e0f80a5c0")})
     {'k': '1f231570-e777-11e6-820f-185e0f80a5c0'}
     """
