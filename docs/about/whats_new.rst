@@ -18,6 +18,8 @@ v1.6.0 ??????? (?? ??????? 2017)
 
  - Multiple environments can now be specified in one datacube config. See `#298`_ and the `config docs`_
 
+ - New `datacube file` cli commands for showing, archiving and restoring file-based dataset locations.
+
 .. _#298: https://github.com/opendatacube/datacube-core/pull/298
 .. _config docs: https://datacube-core.readthedocs.io/en/latest/ops/config.html#runtime-config-doc
 
