@@ -374,7 +374,7 @@ def test_index_dataset_with_location(index, default_metadata_type, driver):
     assert dataset_ids == [dataset.id]
 
 
-def test_archiving_locations_on_cli(index, default_metadata_type, driver, global_integration_cli_args):
+def test_archiving_locations_on_cli(index, default_metadata_type, driver, global_integration_cli_args, tmpdir):
     # type: (Index, MetadataType, Driver, Iterable[str]) -> None
     """
     Can we archive and restore file locations from the cli?
@@ -383,8 +383,8 @@ def test_archiving_locations_on_cli(index, default_metadata_type, driver, global
     if driver.uri_scheme != 'file':
         return
 
-    first_path = Path('/tmp/first/something.yaml')
-    second_path = Path('/tmp/second/something.yaml')
+    first_path = Path(str(tmpdir)) / 'first' / 'something.yaml'
+    second_path = Path(str(tmpdir)) / 'second' / 'something.yaml'
 
     type_ = index.products.add_document(_pseudo_telemetry_dataset_type)
     dataset = Dataset(type_, _telemetry_dataset, uris=[first_path.as_uri(), second_path.as_uri()], sources={})
@@ -407,6 +407,14 @@ def test_archiving_locations_on_cli(index, default_metadata_type, driver, global
     res = _run_cli(global_integration_cli_args, ['file', 'info', str(first_path)])
     assert str(dataset.id) in res.output
     assert first_path.as_uri() in res.output
+
+    # Show info on a file that's unknown (not indexed).
+    res = _run_cli(
+        global_integration_cli_args,
+        ['file', 'info', str(tmpdir.join('some-fake-path.txt'))],
+        expect_success=False
+    )
+    assert res.exit_code == 1, "Expect exit code 1 when 1 input path is not found"
 
 
 def _run_cli(global_integration_cli_args, opts, catch_exceptions=False, expect_success=True):

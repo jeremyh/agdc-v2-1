@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import click
+import sys
 
 from datacube.index._api import Index
 from datacube.ui import click as ui
@@ -39,7 +40,7 @@ def file_cmd():
 @click.argument('files', click.Path(exists=False), nargs=-1)
 @ui.pass_index()
 def info_cmd(index, show_sources, show_derived, format_, max_depth, files):
-    # type: (Index, bool, bool, str, int, Iterable[str]) -> int
+    # type: (Index, bool, bool, str, int, Iterable[str]) -> None
 
     # Using an array wrapper to get around the lack of "nonlocal" in py2
     missing_paths = [0]
@@ -67,7 +68,7 @@ def info_cmd(index, show_sources, show_derived, format_, max_depth, files):
     )
 
     # Error code: number of inputs that weren't found.
-    return missing_paths[0]
+    sys.exit(missing_paths[0])
 
 
 @file_cmd.command('archive', help="Archive file locations")
@@ -76,7 +77,7 @@ def info_cmd(index, show_sources, show_derived, format_, max_depth, files):
 @click.argument('files', click.Path(exists=False), nargs=-1)
 @ui.pass_index()
 def archive_cmd(index, dry_run, files):
-    # type: (Index, bool, Iterable[str]) -> int
+    # type: (Index, bool, Iterable[str]) -> None
 
     not_found_count = 0
 
@@ -97,7 +98,7 @@ def archive_cmd(index, dry_run, files):
         if archive_count == 0:
             not_found_count += 1
 
-    return not_found_count
+    sys.exit(not_found_count)
 
 
 @file_cmd.command('restore', help="Restore file locations")
@@ -106,7 +107,7 @@ def archive_cmd(index, dry_run, files):
 @click.argument('files', click.Path(exists=False), nargs=-1)
 @ui.pass_index()
 def restore_cmd(index, dry_run, files):
-    # type: (Index, bool, Iterable[str]) -> int
+    # type: (Index, bool, Iterable[str]) -> None
 
     not_found_count = 0
 
@@ -126,7 +127,7 @@ def restore_cmd(index, dry_run, files):
             if restore_count == 0:
                 not_found_count += 1
 
-    return not_found_count
+    sys.exit(not_found_count)
 
 
 def _full_uri(file_):
