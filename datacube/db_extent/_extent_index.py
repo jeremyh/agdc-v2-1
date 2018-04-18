@@ -90,8 +90,9 @@ class ComputeChunk(object):
         :return: union of extents as computed by shapely cascaded union
         """
 
-        return self._compute(dc=self._set_datacube(), product=self._product,
-                             period=period, projection=self._projection)
+        # We need to release datacube resources after compute, so use a context manager
+        with self._set_datacube() as dc:
+            return self._compute(dc=dc, product=self._product, period=period, projection=self._projection)
 
 
 class ExtentIndex(object):
@@ -191,10 +192,8 @@ class ExtentIndex(object):
                                     self._extent_meta_table.c.end.label('end')]).\
             where((dataset_type_ref == self._extent_meta_table.c.dataset_type_ref) &
                   (offset_alias == self._extent_meta_table.c.offset_alias))
-        with self._engine.begin(close_with_result=True) as conn:
-            result = conn.execute(extent_meta_query).fetchone()
-            row = {'id': result['id'], 'start': result['start'], 'end': result['end']}
-            return row
+        with self._engine.begin() as conn:
+            return conn.execute(extent_meta_query).fetchone()
 
     def _get_extent_row(self, dataset_type_ref, start, offset_alias):
         """
@@ -268,6 +267,7 @@ class ExtentIndex(object):
                                             port=self._port, database=self._database,
                                             username=self._username, compute=extent_per_period,
                                             projection=projection), period_list)
+        pool.close()
         # Filter out extents of NoneType
         extent_list = [extent for extent in extent_list if extent]
 
