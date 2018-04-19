@@ -21,6 +21,8 @@ _LOG = logging.getLogger(__name__)
 # pandas style time period frequencies
 DEFAULT_FREQ = 'M'
 DEFAULT_PER_PROCESS_FREQ = 'D'
+
+# default projection string
 DEFAULT_PROJECTION_BOUNDS = 'EPSG:4326'
 
 # database env for datasets
@@ -30,6 +32,9 @@ EXTENT_ENV = 'dev'
 
 # multiprocessing or threading pool size
 POOL_SIZE = 31
+
+# SQLAlchemy constants
+POOL_RECYCLE_TIME_SEC = 240
 
 
 def extent_per_period(dc, product, period, projection=None):
@@ -117,7 +122,7 @@ class ExtentIndex(object):
 
         # Access to tables
         self._extent_index = extent_index
-        self._engine = create_engine(extent_index.url, pool_recycle=240, client_encoding='utf8')
+        self._engine = create_engine(extent_index.url, pool_recycle=POOL_RECYCLE_TIME_SEC, client_encoding='utf8')
         self._conn = self._engine.connect()
         meta = MetaData(self._engine, schema=SCHEMA_NAME)
         meta.reflect(bind=self._engine, only=['extent', 'extent_meta', 'product_bounds'], schema=SCHEMA_NAME)
@@ -173,7 +178,7 @@ class ExtentIndex(object):
         :param str product_name:
         :return: dataset_type id
         """
-        dataset_type_query = select([self._dataset_type_table.c.id.label('id')]).\
+        dataset_type_query = select([self._dataset_type_table.c.id]).\
             where(self._dataset_type_table.c.name == product_name)
         with self._engine.begin(close_with_result=True) as conn:
             dataset_type_row = conn.execute(dataset_type_query).fetchone()
@@ -187,9 +192,9 @@ class ExtentIndex(object):
         :param str offset_alias: Pandas style offset period string
         :return:
         """
-        extent_meta_query = select([self._extent_meta_table.c.id.label('id'),
-                                    self._extent_meta_table.c.start.label('start'),
-                                    self._extent_meta_table.c.end.label('end')]).\
+        extent_meta_query = select([self._extent_meta_table.c.id,
+                                    self._extent_meta_table.c.start,
+                                    self._extent_meta_table.c.end]).\
             where((dataset_type_ref == self._extent_meta_table.c.dataset_type_ref) &
                   (offset_alias == self._extent_meta_table.c.offset_alias))
         with self._engine.begin() as conn:
@@ -207,9 +212,9 @@ class ExtentIndex(object):
         # compute the id (i.e. uuid) from dataset_type_ref, start, and offset
         extent_uuid = ExtentIndex._compute_uuid(dataset_type_ref, start, offset_alias)
 
-        extent_query = select([self._extent_table.c.geometry.label('geometry')]).\
+        extent_query = select([self._extent_table.c.geometry]).\
             where(self._extent_table.c.id == extent_uuid.hex)
-        with self._engine.begin(close_with_result=True) as conn:
+        with self._engine.begin() as conn:
             extent_row = conn.execute(extent_query).fetchone()
             if extent_row:
                 geo = extent_row['geometry']
@@ -230,7 +235,7 @@ class ExtentIndex(object):
         extent_uuid = ExtentIndex._compute_uuid(dataset_type_ref, start, offset_alias)
 
         # See whether an entry already exists in extent
-        extent_query = select([self._extent_table.c.id.label('id')]).\
+        extent_query = select([self._extent_table.c.id]).\
             where(self._extent_table.c.id == extent_uuid.hex)
         conn = self._engine.connect()
         extent_row = conn.execute(extent_query).fetchone()
@@ -261,13 +266,13 @@ class ExtentIndex(object):
         :param projection: Geo spacial projection to be applied
         """
         # Compute full extent using multiprocess pools
-        pool = Pool(processes=POOL_SIZE)
         period_list = PeriodIndex(start=period.start_time, end=period.end_time, freq=offset_pool)
-        extent_list = pool.map(ComputeChunk(product=product_name, hostname=self._hostname,
-                                            port=self._port, database=self._database,
-                                            username=self._username, compute=extent_per_period,
-                                            projection=projection), period_list)
-        pool.close()
+        with Pool(processes=POOL_SIZE) as pool:
+            extent_list = pool.map(ComputeChunk(product=product_name, hostname=self._hostname,
+                                                port=self._port, database=self._database,
+                                                username=self._username, compute=extent_per_period,
+                                                projection=projection), period_list)
+
         # Filter out extents of NoneType
         extent_list = [extent for extent in extent_list if extent]
 
@@ -357,7 +362,7 @@ class ExtentIndex(object):
         conn = self._engine.connect()
 
         # See whether an entry exists in product_bounds
-        bounds_query = select([self._bounds_table.c.id.label('id')]).\
+        bounds_query = select([self._bounds_table.c.id]).\
             where(self._bounds_table.c.dataset_type_ref == dataset_type_ref)
         bounds_row = conn.execute(bounds_query).fetchone()
         if bounds_row:
@@ -426,12 +431,12 @@ class ExtentIndex(object):
             else:
                 return max(a, b)
 
-        pool = Pool(processes=POOL_SIZE)
         period_list = PeriodIndex(start=time_hints[0], end=time_hints[1], freq='1Y')
-        bounds_list = pool.map(ComputeChunk(product=product, hostname=self._hostname,
-                                            port=self._port, database=self._database,
-                                            username=self._username, compute=ExtentIndex._compute_bounds,
-                                            projection=projection), period_list)
+        with Pool(processes=POOL_SIZE) as pool:
+            bounds_list = pool.map(ComputeChunk(product=product, hostname=self._hostname,
+                                                port=self._port, database=self._database,
+                                                username=self._username, compute=ExtentIndex._compute_bounds,
+                                                projection=projection), period_list)
 
         # Aggregate time min, time max, and bounds
         return reduce(lambda x, y: (_cool_min(x[0], y[0]), _cool_max(x[1], y[1]),
@@ -648,11 +653,11 @@ class ExtentIndex(object):
         """
         dataset_type_ref = self.get_dataset_type_ref(product_name)
         if dataset_type_ref:
-            bounds_query = select([self._bounds_table.c.dataset_type_ref.label('dataset_type_ref'),
-                                   self._bounds_table.c.start.label('start'),
-                                   self._bounds_table.c.end.label('end'),
-                                   self._bounds_table.c.bounds.label('bounds'),
-                                   self._bounds_table.c.projection.label('projection')]). \
+            bounds_query = select([self._bounds_table.c.dataset_type_ref,
+                                   self._bounds_table.c.start,
+                                   self._bounds_table.c.end,
+                                   self._bounds_table.c.bounds,
+                                   self._bounds_table.c.projection]). \
                 where(self._bounds_table.c.dataset_type_ref == dataset_type_ref)
             bounds_row = self._conn.execute(bounds_query).fetchone()
             if bounds_row:
@@ -672,4 +677,4 @@ if __name__ == '__main__':
     # load into extents table
     EXTENT_IDX.store_extent(product_name='ls8_nbar_albers', start='2017-01',
                             end='2017-02', offset_alias='1M', projection='EPSG:4326')
-    EXTENT_IDX.store_bounds(product_name='ls8_nbar_albers', projection='EPSG:4326')
+    # EXTENT_IDX.store_bounds(product_name='ls8_nbar_albers', projection='EPSG:4326')
