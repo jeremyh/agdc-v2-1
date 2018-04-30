@@ -180,7 +180,7 @@ class ExtentIndex(object):
         """
         dataset_type_query = select([self._dataset_type_table.c.id]).\
             where(self._dataset_type_table.c.name == product_name)
-        with self._engine.begin(close_with_result=True) as conn:
+        with self._engine.begin() as conn:
             dataset_type_row = conn.execute(dataset_type_query).fetchone()
             type_id = dataset_type_row['id'] if dataset_type_row else None
             return type_id
