@@ -58,6 +58,10 @@ def extent_per_period(dc, product, period, projection=None):
 
 
 class ComputeChunk(object):
+    """
+    This is a callable class designed for multiprocessors to initialize and subsequently execute
+    periodic computation on a datacube of given database parameters.
+    """
     def __init__(self, product, hostname, port, database, username, compute, projection=None):
         """
         Perform initialization of product variable and variables required
@@ -67,6 +71,8 @@ class ComputeChunk(object):
         :param port: port of the datacube postgres db to extract extents
         :param database: name of the database, i.e. 'datacube'
         :param username: username to access the database
+        :param compute: A function to act on a product for a given period using a given projection
+        :param projection: The projection to be used by the compute function
         """
         # globals for multi-processes
         self._hostname = hostname
@@ -669,6 +675,7 @@ class ExtentIndex(object):
 
 
 if __name__ == '__main__':
+    # ToDo These stuff are to be removed
     # Get the Connections to the databases
     EXTENT_DB = PostgresDb.create(hostname='agdcdev-db.nci.org.au', database='datacube', port=6432, username='aj9439')
     EXTENT_IDX = ExtentIndex(hostname='agdc-db.nci.org.au', database='datacube', port=6432,
@@ -677,4 +684,4 @@ if __name__ == '__main__':
     # load into extents table
     EXTENT_IDX.store_extent(product_name='ls8_nbar_albers', start='2017-01',
                             end='2017-02', offset_alias='1M', projection='EPSG:4326')
-    # EXTENT_IDX.store_bounds(product_name='ls8_nbar_albers', projection='EPSG:4326')
+    EXTENT_IDX.store_bounds(product_name='ls8_nbar_albers', projection='EPSG:4326')
