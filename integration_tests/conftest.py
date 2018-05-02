@@ -412,16 +412,23 @@ def default_metadata_type_doc():
     return [doc for doc in default_metadata_type_docs() if doc['name'] == 'eo'][0]
 
 
+def test_metadata_type_docs():
+    return [
+        doc for (path, doc) in
+        datacube.utils.read_documents(
+            Path(__file__).parent.joinpath('test-metadata-types.yaml')
+        )
+    ]
+
+
 @pytest.fixture
 def telemetry_metadata_type_doc():
-    return [doc for doc in default_metadata_type_docs() if doc['name'] == 'telemetry'][0]
+    return [doc for doc in test_metadata_type_docs() if doc['name'] == 'telemetry'][0]
 
 
 @pytest.fixture
 def ga_metadata_type_doc():
-    _FULL_EO_METADATA = Path(__file__).parent.joinpath('extensive-eo-metadata.yaml')
-    [(path, eo_md_type)] = datacube.utils.read_documents(_FULL_EO_METADATA)
-    return eo_md_type
+    return [doc for doc in test_metadata_type_docs() if doc['name'] == 'eo_full'][0]
 
 
 @pytest.fixture
@@ -444,8 +451,10 @@ def default_metadata_type(index, default_metadata_types):
 
 
 @pytest.fixture
-def telemetry_metadata_type(index, default_metadata_types):
-    return index.metadata_types.get_by_name('telemetry')
+def telemetry_metadata_type(index, telemetry_metadata_type_doc):
+    return index.metadata_types.add(
+        index.metadata_types.from_doc(telemetry_metadata_type_doc)
+    )
 
 
 @pytest.fixture
