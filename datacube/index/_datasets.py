@@ -9,7 +9,7 @@ import warnings
 from collections import namedtuple
 from uuid import UUID
 
-from cachetools.func import lru_cache
+from cachetools.func import lru_cache, ttl_cache
 
 from datacube import compat
 from datacube.index.fields import Field
@@ -219,6 +219,7 @@ class MetadataTypeResource(object):
                 rebuild_views=rebuild_views,
             )
 
+    @ttl_cache(ttl=60)
     def get_all(self):
         """
         Retrieve all Metadata Types
@@ -719,11 +720,12 @@ class DatasetResource(object):
 
                 # reinsert attempt? try updating the location
                 if dataset.uris:
-                    try:
-                        with self._db.connect() as connection:
-                            connection.ensure_dataset_locations(dataset.id, dataset.uris)
-                    except DuplicateRecordError as e:
-                        _LOG.warning(str(e))
+                    with self._db.connect() as connection:
+                        number_added = connection.ensure_dataset_locations(
+                            dataset.id,
+                            dataset.uris
+                        )
+
         finally:
             dataset.type.dataset_reader(dataset.metadata_doc).sources = sources_tmp
 
@@ -759,7 +761,7 @@ class DatasetResource(object):
 
     def _add_sources(self, dataset, sources_policy='verify'):
         if dataset.sources is None:
-            raise ValueError('Dataset has missing (None) sources. Was this loaded without include_sources=True?\n'
+            raise ValueError(f'Dataset {dataset.id} has missing (None) sources. Was this loaded without include_sources=True?\n'
                              'Note that: \n'
                              '  sources=None means "not loaded", '
                              '  sources={}   means there are no sources (eg. raw telemetry data)')
@@ -1134,8 +1136,6 @@ class DatasetResource(object):
         return next(self._do_time_count(period, query, ensure_single=True))[1]
 
     def _try_add(self, dataset):
-        was_inserted = False
-
         product = self.types.get_by_name(dataset.type.name)
         if product is None:
             _LOG.warning('Adding product "%s" as it doesn\'t exist.', dataset.type.name)
@@ -1144,9 +1144,9 @@ class DatasetResource(object):
             raise ValueError("Dataset has missing (None) sources. Was this loaded without include_sources=True?")
 
         with self._db.begin() as transaction:
-            try:
-                was_inserted = transaction.insert_dataset(dataset.metadata_doc, dataset.id, product.id)
-
+            was_inserted = transaction.insert_dataset(dataset.metadata_doc, dataset.id,
+                                                      product.id)
+            if was_inserted:
                 for classifier, source_dataset in dataset.sources.items():
                     transaction.insert_dataset_source(classifier, dataset.id, source_dataset.id)
 
@@ -1155,9 +1155,8 @@ class DatasetResource(object):
                 # if insertion succeeds the location bit can't possibly fail
                 if dataset.uris:
                     transaction.ensure_dataset_locations(dataset.id, dataset.uris)
-            except DuplicateRecordError as e:
-                _LOG.warning(str(e))
-        return was_inserted
+
+            return was_inserted
 
     def _get_dataset_types(self, q):
         types = set()

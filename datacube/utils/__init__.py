@@ -24,6 +24,7 @@ import jsonschema
 import netCDF4
 import numpy
 import xarray
+import msgpack
 import yaml
 from dateutil.tz import tzutc
 from decimal import Decimal
@@ -266,6 +267,13 @@ def read_documents(*paths):
                 with opener(str(path), 'r') as handle:
                     for parsed_doc in yaml.load_all(handle, Loader=NoDatesSafeLoader):
                         yield path, parsed_doc
+            except yaml.YAMLError as e:
+                raise InvalidDocException('Failed to load %s: %s' % (path, e))
+        elif suffix in ('.msgpack',):
+            try:
+                with opener(str(path), 'rb') as handle:
+                    for unpacked_doc in msgpack.Unpacker(handle, raw=False):
+                        yield path, unpacked_doc
             except yaml.YAMLError as e:
                 raise InvalidDocException('Failed to load %s: %s' % (path, e))
         elif suffix == '.json':

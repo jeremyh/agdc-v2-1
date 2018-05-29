@@ -17,7 +17,7 @@ from sqlalchemy import cast
 from sqlalchemy import delete
 from sqlalchemy import select, text, bindparam, and_, or_, func, literal, distinct
 from sqlalchemy.dialects.postgresql import INTERVAL
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.exc import IntegrityError
 
 from datacube.index.exceptions import DuplicateRecordError, MissingRecordError
@@ -169,7 +169,7 @@ class PostgresDbAPI(object):
         try:
             dataset_type_ref = bindparam('dataset_type_ref')
             ret = self._connection.execute(
-                DATASET.insert().from_select(
+                insert(DATASET).from_select(
                     ['id', 'dataset_type_ref', 'metadata_type_ref', 'metadata'],
                     select([
                         bindparam('id'), dataset_type_ref,
@@ -180,6 +180,8 @@ class PostgresDbAPI(object):
                         ).label('metadata_type_ref'),
                         bindparam('metadata', type_=JSONB)
                     ])
+                ).on_conflict_do_nothing(
+                    index_elements=['id']
                 ),
                 id=dataset_id,
                 dataset_type_ref=dataset_type_id,
@@ -216,21 +218,20 @@ class PostgresDbAPI(object):
         :type dataset_id: str or uuid.UUID
         :type uris: list[str]
         """
-
+        inserted = 0
         for uri in uris:
             scheme, body = _split_uri(uri)
+            ret = self._connection.execute(
+                insert(DATASET_LOCATION).on_conflict_do_nothing(
+                    index_elements=['uri_scheme', 'uri_body', 'dataset_ref']
+                ),
+                dataset_ref=dataset_id,
+                uri_scheme=scheme,
+                uri_body=body,
+            )
+            inserted += ret.rowcount
 
-            try:
-                self._connection.execute(
-                    DATASET_LOCATION.insert(),
-                    dataset_ref=dataset_id,
-                    uri_scheme=scheme,
-                    uri_body=body,
-                )
-            except IntegrityError as e:
-                if e.orig.pgcode == PGCODE_UNIQUE_CONSTRAINT:
-                    raise DuplicateRecordError('Location already exists: %s' % uri)
-                raise
+        return inserted
 
     def contains_dataset(self, dataset_id):
         return bool(
